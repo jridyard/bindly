@@ -1,0 +1,40 @@
+{
+    "name": "Bindly",
+    "description": "The Easiest Way To Inject And Bind Elements In Browser Extensions!",
+    "version": "1.2",
+    "manifest_version": 3,
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": [
+            "jquery.min.js",
+            "bindly.js",
+            "bindly_tests.js"
+        ],
+        "css": [
+        ],
+        "run_at": "document_start"
+      }
+    ],
+    "permissions": [
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [ "images/*"],
+        "matches": [ "http://*/*","https://*/*","*://*/*" ]
+      }
+    ],
+    "incognito": "spanning",
+    "icons": {
+      "16": "./images/bindlyJS.png",
+      "32": "./images/bindlyJS.png",
+      "48": "./images/bindlyJS.png",
+      "128": "./images/bindlyJS.png"
+    },
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }
