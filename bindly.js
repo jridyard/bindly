@@ -1,7 +1,25 @@
 class ElmBind {
     constructor(params) {
+        function keyNotListed(key) { return !Object.keys(params).includes(key) }
+
+        // if the user did not pass these params, we want to set them to true by default...
+        if (keyNotListed('duplicate')) params['duplicate'] = false
+        if (keyNotListed('bindAll')) params['bindAll'] = true
+
+        this.bindlyStyleDetails = {
+            'bound-element': null,
+            'original': null
+        }
+
         this.params = params
         this.awaitDOM()
+
+    }
+    guidGenerator() {
+        var S4 = function() {
+           return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+        };
+        return (S4()+"-"+S4()+"-"+S4()+"-"+S4());
     }
     awaitDOM() {
         if (document.readyState === 'loading') {
@@ -9,24 +27,34 @@ class ElmBind {
                 this.awaitReadyStateComplete()
             })
         }
-        else if (document.readyState === 'interactive') { this.awaitReadyStateComplete() }
-        else { this.waitForElm() }
+        else if (document.readyState === 'interactive') {
+            this.awaitReadyStateComplete()
+        }
+        else {
+            this.waitForElm()
+        }
     }
     awaitReadyStateComplete() {
-        if (document.readyState === 'complete' || this.params.runBeforeComplete) { return this.waitForElm() }
-        console.log('waiting completeion')
+        if (document.readyState === 'complete' || this.params.runBeforeComplete) {
+            return this.waitForElm()
+        }
         let observer = new MutationObserver(mutations => {
             if (document.readyState === 'complete') {
                 observer.disconnect()
                 this.waitForElm()
             }
         });
-        observer.observe(document.body, { childList: true, subtree: true })
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        })
     }
     waitForElm() {
         new Promise(resolve => {
-            if (this.params.mode == 'jquery') {
-                if ($(`${this.params.el}:not([bindly="bound"])`).length >= 1) { return resolve($(`${this.params.el}:not([bindly="bound"])`)[0]) }
+            if (this.params.jquery == true) {
+                if ($(`${this.params.el}:not([bindly="bound"])`).length >= 1) {
+                    return resolve($(`${this.params.el}:not([bindly="bound"])`)[0])
+                }
                 let observer = new MutationObserver(mutations => {
                     if ($(`${this.params.el}:not([bindly="bound"])`).length >= 1) {
                         resolve($(`${this.params.el}:not([bindly="bound"])`)[0])
@@ -36,37 +64,71 @@ class ElmBind {
                 observer.observe(document.body, { childList: true, subtree: true })
             }
             else {
-                if (document.querySelector(`${this.params.el}:not([bindly="bound"])`)) { return resolve(document.querySelector(`${this.params.el}:not([bindly="bound"])`)) }
+                if (document.querySelector(`${this.params.el}:not([bindly="bound"])`)) {
+                    return resolve(document.querySelector(`${this.params.el}:not([bindly="bound"])`))
+                }
                 let observer = new MutationObserver(mutations => {
                     if (document.querySelector(`${this.params.el}:not([bindly="bound"])`)) {
                         resolve(document.querySelector(`${this.params.el}:not([bindly="bound"])`))
                         observer.disconnect();
                     }
                 });
-                observer.observe(document.body, { childList: true, subtree: true })
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                })
             }
         }).then((element) => {
             element.setAttribute('bindly', 'bound')
-            if (this.params.parentToBind) {
-                this.params.elToClone = element.closest(this.params.parentToBind)
-                if (this.params.elToClone) {
-                    element.closest(this.params.parentToBind).setAttribute('bindly', 'bound')
-                    this.initializeElm()
-                    !this.params.bindAll && this.trackElmDeletion(element)
-                    this.params.bindAll && this.waitForElm()
-                } else {
-                    // this checks if the element has the desired parent class, if not, we need to re run the waitForElm routine regardless of bindAll status.
-                    this.waitForElm()
+            element.setAttribute('bindly-element-type', 'original')
+            element.setAttribute('bindly-id', this.guidGenerator())
+            this.originalElm = element
+
+            if (!this.params.duplicate) {
+                if (this.params.bindToParent) {
+                    this.params.newElm = element.closest(this.params.bindToParent)
+                    if (this.params.newElm) {
+                        this.params.newElm.setAttribute('bindly', 'bound')
+                        this.manipulateElm()
+                    }
+                    else {
+                        // this checks if the element has the desired parent class, if not, we need to re run the waitForElm routine regardless of bindAll status.
+                        this.waitForElm()
+                    }
                 }
-            } else {
-                this.params.elToClone = element
-                this.initializeElm()
-                !this.params.bindAll && this.trackElmDeletion(element)
-                this.params.bindAll && this.waitForElm()
+                else {
+                    this.newElm = element // We set "newElm" directly to the element itself since the user does not wish to duplicate the elm
+                    this.manipulateElm()
+                }
             }
+
+            if (this.params.duplicate) {
+                if (this.params.bindToParent) {
+                    this.params.elToClone = element.closest(this.params.bindToParent)
+                    if (this.params.elToClone) {
+                        element.closest(this.params.bindToParent).setAttribute('bindly', 'bound')
+                        this.initializeElm()
+                    }
+                    else {
+                        // this checks if the element has the desired parent class, if not, we need to re run the waitForElm routine regardless of bindAll status.
+                        this.waitForElm()
+                    }
+                } else {
+                    this.params.elToClone = element
+                    this.initializeElm()
+                }
+            }
+
+            this.params.bindAll && this.waitForElm()
+            this.trackElmDeletion(element, 'original')
+            if (this.params.onAttributeChange) {
+                this.bindlyStyleDetails['original'] = this.getCurrentStyles(this.originalElm)
+                this.onAttributeChange(element, 'original')
+            }
+
         })
     }
-    trackElmDeletion(target) {
+    trackElmDeletion(target, element_type) {
         new Promise(resolve => {
             let observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
@@ -75,35 +137,172 @@ class ElmBind {
                     var parentMatch = nodes.some(parent => parent.contains(target))
                     if (directMatch || parentMatch) {
                         observer.disconnect()
-                        resolve('Element Deleted')
+                        resolve({
+                            'element_type': element_type,
+                            'target': target,
+                            'mutation': mutation,
+                            'destruction_type': directMatch ? "direct-match" : parentMatch ? "parent-match" : "unknown",
+                        })
                     }
                 })
             })
-            var config = { subtree: true, childList: true }
+            var config = {
+                subtree: true,
+                childList: true
+            }
             observer.observe(document.body, config)
-        }).then((msg) => {
-            this.waitForElm()
+        }).then((removalEventDetails) => {
+            this.onDestroyed(removalEventDetails)
+            if (!this.params.bindAll) this.waitForElm() // if we are on bindall then we are already listenng for new elements to be created, allows waitforelm to run here would cuase a recursive loop
         })
+    }
+    onAttributeChange(target_element, bindly_element_type) {
+
+        // collect information on attribute changes
+        var changeInfo = {}
+
+        target_element.setAttribute = (...args) => {
+            changeInfo = {
+                'attribute': args[0],
+                'old_value': target_element.getAttribute(args[0]),
+                'new_value': args[1],
+            }
+            return HTMLElement.prototype.setAttribute.apply(target_element, args);
+        };
+        
+        new Promise(resolve => {
+            let observer = new MutationObserver(function (records) {
+                records.forEach(function (record) {
+                    try {
+                        if (record.target == target_element) {
+                            observer.disconnect()
+                            resolve(record)
+                        }
+                    } catch (err) { console.error(err) /* supress err */ }
+                });
+            });
+        
+            observer.observe(document.body.parentElement, {
+                childList: false,
+                subtree: true,
+                attributes: true
+            });
+        }).then((record) => {
+
+            // we use .then() to access our class information without being limited by the mutation observers class.
+            // re-instantiate observer right away since we don't actually want it to be off
+            if (bindly_element_type == 'original') this.onAttributeChange(this.originalElm, 'original')
+            if (bindly_element_type == 'bound-element') this.onAttributeChange(this.newElm, 'bound-element')
+
+            // the below inline if statement is irrelevant with the current version of bindly. We will ALWAYS have it present. More so just a backup in the unlikely case something goes wrong.
+            // TODO: Get the guts up to remove the crutch if statement below...
+            const previousStyleDetails = this.bindlyStyleDetails[bindly_element_type] ? this.bindlyStyleDetails[bindly_element_type] : {}
+
+            this.bindlyStyleDetails[bindly_element_type] = this.getCurrentStyles(target_element)
+
+            var styleChangeLog = {};
+
+            const newStyleDetails = this.bindlyStyleDetails[bindly_element_type]
+            const newStyleDetailsKeys = Object.keys(newStyleDetails)
+            for (var i=0; i < newStyleDetailsKeys.length; i++) {
+                var newStlyeKey = newStyleDetailsKeys[i]
+                if (previousStyleDetails[newStlyeKey] != newStyleDetails[newStlyeKey]) {
+                    styleChangeLog[newStlyeKey] = {
+                        'old_value': previousStyleDetails[newStlyeKey],
+                        'new_value': newStyleDetails[newStlyeKey],
+                    }
+                }
+            }
+
+            const attribute_change_record = {
+                'attributeTrigger': record.attributeName,
+                'bindlyElementType': bindly_element_type,
+                'target': target_element,
+                'mutation': record,
+                'styleChanges': styleChangeLog,
+                'attributeChanges': changeInfo
+            }
+
+            changeInfo = {} // reset changeInfo
+
+            this.params.onAttributeChange(attribute_change_record)
+    
+        })
+
+    }
+    getCurrentStyles(elm) {
+        const computedStyles = window.getComputedStyle(elm)
+        const computedStyleKeys = Object.keys(computedStyles)
+        var allStyles = {}
+        for (var i=0; i < computedStyleKeys.length; i++) { 
+            var styleKey = computedStyleKeys[i];
+            if (isNaN(styleKey)) allStyles[styleKey] = computedStyles[styleKey] 
+        }
+        return allStyles
     }
     initializeElm() {
         this.dupliacteElm()
+        this.newElm.setAttribute('bindly-id', this.guidGenerator())
+
         this.params.hideOriginal && this.hideOriginal()
         this.params.id && this.setNewElmId()
         this.params.className && this.setClass()
         this.params.addClasses && this.addClasses()
-        this.params.addAttributes && (() => {for (let i=0; i < Object.keys(this.params.addAttributes).length; i++) { this.addAttribute(Object.keys(this.params.addAttributes)[i], Object.values(this.params.addAttributes)[i]) }})()
-        this.params.addListeners && (() => {for (let i=0; i < Object.keys(this.params.addListeners).length; i++) { this.addListener(Object.keys(this.params.addListeners)[i], Object.values(this.params.addListeners)[i]) }})()
+        this.params.setAttributes && (() => {
+            for (let i=0; i < Object.keys(this.params.setAttributes).length; i++) {
+                var attrKey = Object.keys(this.params.setAttributes)[i]
+                var attrVal = Object.values(this.params.setAttributes)[i]
+                this.addAttribute(attrKey, attrVal)
+            }
+        })()
+        this.params.addEventListeners && (() => {
+            for (let i=0; i < Object.keys(this.params.addEventListeners).length; i++) {
+                var listenerKey = Object.keys(this.params.addEventListeners)[i]
+                var listenerVal = Object.values(this.params.addEventListeners)[i]
+                this.addListener(listenerKey, listenerVal)
+            }
+        })()
         typeof this.params.insert === 'string' ? this.params.insert.toLowerCase() == 'before' ? this.insertBefore() : this.insertAfter() : this.insertAfter()
-        this.params.adjustElm && this.adjustElm()
+
+        // onAttributeChange =>
+        if (this.params.onAttributeChange) {
+            this.bindlyStyleDetails['bound-element'] = this.getCurrentStyles(this.newElm)
+            this.onAttributeChange(this.newElm, 'bound-element')
+        }
+
+        // onCreated =>
+        this.params.onCreated && this.onCreated()
+    }
+    manipulateElm() {
+        this.params.id && this.setNewElmId()
+        this.params.className && this.setClass()
+        this.params.addClasses && this.addClasses()
+        this.params.setAttributes && (() => {
+            for (let i=0; i < Object.keys(this.params.setAttributes).length; i++) {
+                var attrKey = Object.keys(this.params.setAttributes)[i]
+                var attrVal = Object.values(this.params.setAttributes)[i]
+                this.addAttribute(attrKey, attrVal)
+            }
+        })()
+        this.params.addEventListeners && (() => {
+            for (let i=0; i < Object.keys(this.params.addEventListeners).length; i++) {
+                var listenerKey = Object.keys(this.params.addEventListeners)[i]
+                var listenerVal = Object.values(this.params.addEventListeners)[i]
+                this.addListener(listenerKey, listenerVal)
+            }
+        })()
+        this.params.onCreated && this.onCreated()
     }
     dupliacteElm() {
         this.newElm = this.params.elToClone.cloneNode(true)
+        this.newElm.setAttribute('bindly-element-type', 'bound-element')
+        this.trackElmDeletion( this.newElm, 'bound-element' )
     }
     hideOriginal() {
         this.params.elToClone.style.display = 'none'
     }
     setNewElmId() {
-        if (this.params.id) { this.newElm.id = this.params.id }
+        if (this.params.id) this.newElm.id = this.params.id
     }
     setClass() {
         this.newElm.className = this.params.className
@@ -123,8 +322,14 @@ class ElmBind {
     insertBefore() {
         this.params.elToClone.parentNode.insertBefore(this.newElm, this.params.elToClone)
     }
-    adjustElm() {
-        this.params.adjustElm(this.newElm)
+    onCreated() {
+        this.params.onCreated(this.originalElm, this.newElm)
+    }
+    onDestroyed(removalEventDetails) {
+        if (this.params.onDestroyed) this.params.onDestroyed(removalEventDetails)
     }
 }
-function Bindly(params) { return new ElmBind(params) }
+
+function bindElement(params) {
+    return new ElmBind(params)
+}
