@@ -50,11 +50,12 @@ const myNewElement = bindElement({
 
 | Option                | Description                                                                | Type     | Default        | Required?  |
 |-----------------------|----------------------------------------------------------------------------|----------|----------------|------------|
-| `el`                  | Selector of the element you'd like to bind                                 | `string` | _None_         | Yes        |
+| `target`              | Selector of the element you'd like to bind                                 | `string` | _None_         | Yes        |
 | `bindAll`             | Applies bindly rules to all elements or just the first to appear.          | `bool`   | `true`         | No         |
 | `jquery`              | Use jquery to target elements with advanced selectors                      | `bool`   | `false`        | No         |
 | `duplicate`           | Duplicates the target element if set to true                               | `bool`   | `false`        | No         |
 | `hideOriginal`        | Sets display of the original element to `none`                             | `bool`   | `false`        | No         |
+| `runBeforeComplete`   | Bindly will launch when instantiated, as opposed to being initiated on page state readiness.  | `bool`   | `false`        | No         |
 | `insert`              | Insert the duplicated element `before` or `after` the original element     | `string` | `after`        | No         |
 | `id`                  | Set the ID for the new element                                             | `string` | _None_         | No         |
 | `className`           | Set the className for the new element                                      | `string` | _None_         | No         |
