@@ -51,9 +51,9 @@ const myNewElement = bindElement({
 | Option                | Description                                                                | Type     | Default        | Required?  |
 |-----------------------|----------------------------------------------------------------------------|----------|----------------|------------|
 | `el`                  | Selector of the element you'd like to bind                                 | `string` | _None_         | Yes        |
+| `bindAll`             | Applies to all elements or just the first to appear.                       | `bool`   | `true`         | No         |
 | `jquery`              | Use jquery to target elements with advanced selectors                      | `bool`   | `false`        | No         |
 | `duplicate`           | Duplicates the target element if set to true                               | `bool`   | `false`        | No         |
-| `bindAll`             | Binds all elements or only the first to appear if set to false             | `bool`   | `true`         | No         |
 | `hideOriginal`        | Sets display of the original element to `none`                             | `bool`   | `false`        | No         |
 | `insert`              | Insert the duplicated element `before` or `after` the original element     | `string` | `after`        | No         |
 | `id`                  | Set the ID for the new element                                             | `string` | _None_         | No         |
