@@ -1,3 +1,8 @@
+/*
+Version: v2.0.2 ( updates @ github.com/jridyard/bindly )
+Creator: Joe Ridyard ( github.com/jridyard )
+*/
+
 class ElmBind {
     constructor(params) {
         function keyNotListed(key) { return !Object.keys(params).includes(key) }
@@ -186,6 +191,15 @@ class ElmBind {
                 'new_value': args[1],
             }
             return HTMLElement.prototype.setAttribute.apply(target_element, args);
+        };
+
+        target_element.removeAttribute = (...args) => {
+            changeInfo = {
+                'attribute': args[0],
+                'old_value': target_element.getAttribute(args[0]),
+                'new_value': null,
+            }
+            return HTMLElement.prototype.removeAttribute.apply(target_element, args);
         };
         
         new Promise(resolve => {
