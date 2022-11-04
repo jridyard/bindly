@@ -42,7 +42,12 @@ const myNewElement = bindElement({
         console.log("Attribute changed!", e)
     }
 })
+
+myNewElement.bind() // starts binding the element
+
 ```
+
+If you would like to remove any injections, simple call `myNewElement.destroy()` and you will be able to re-inject your elements by calling `.bind()` again whenever you'd like.
 
 - 📺 30s demo video: https://vimeo.com/758316166
 
