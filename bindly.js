@@ -2,8 +2,10 @@ class ElmBind {
     constructor(params) {
         function keyNotListed(key) { return !Object.keys(params).includes(key) }
 
-        // if the user did not pass these params, we want to set them to true by default...
-        if (keyNotListed('duplicate')) params['duplicate'] = false
+        // if the user did not pass a target, we cant do anything and need to warn them.
+        if (keyNotListed('target')) return console.error('Bindly: You must pass a target element selector.')
+
+        // Set defaults for params that may not be passed and need to be set to TRUE.
         if (keyNotListed('bindAll')) params['bindAll'] = true
 
         this.bindlyStyleDetails = {
@@ -52,24 +54,24 @@ class ElmBind {
     waitForElm() {
         new Promise(resolve => {
             if (this.params.jquery == true) {
-                if ($(`${this.params.el}:not([bindly="bound"])`).length >= 1) {
-                    return resolve($(`${this.params.el}:not([bindly="bound"])`)[0])
+                if ($(`${this.params.target}:not([bindly="bound"])`).length >= 1) {
+                    return resolve($(`${this.params.target}:not([bindly="bound"])`)[0])
                 }
                 let observer = new MutationObserver(mutations => {
-                    if ($(`${this.params.el}:not([bindly="bound"])`).length >= 1) {
-                        resolve($(`${this.params.el}:not([bindly="bound"])`)[0])
+                    if ($(`${this.params.target}:not([bindly="bound"])`).length >= 1) {
+                        resolve($(`${this.params.target}:not([bindly="bound"])`)[0])
                         observer.disconnect();
                     }
                 });
                 observer.observe(document.body, { childList: true, subtree: true })
             }
             else {
-                if (document.querySelector(`${this.params.el}:not([bindly="bound"])`)) {
-                    return resolve(document.querySelector(`${this.params.el}:not([bindly="bound"])`))
+                if (document.querySelector(`${this.params.target}:not([bindly="bound"])`)) {
+                    return resolve(document.querySelector(`${this.params.target}:not([bindly="bound"])`))
                 }
                 let observer = new MutationObserver(mutations => {
-                    if (document.querySelector(`${this.params.el}:not([bindly="bound"])`)) {
-                        resolve(document.querySelector(`${this.params.el}:not([bindly="bound"])`))
+                    if (document.querySelector(`${this.params.target}:not([bindly="bound"])`)) {
+                        resolve(document.querySelector(`${this.params.target}:not([bindly="bound"])`))
                         observer.disconnect();
                     }
                 });
@@ -104,8 +106,8 @@ class ElmBind {
 
             if (this.params.duplicate) {
                 if (this.params.bindToParent) {
-                    this.params.elToClone = element.closest(this.params.bindToParent)
-                    if (this.params.elToClone) {
+                    this.params.targetToClone = element.closest(this.params.bindToParent)
+                    if (this.params.targetToClone) {
                         element.closest(this.params.bindToParent).setAttribute('bindly', 'bound')
                         this.initializeElm()
                     }
@@ -114,7 +116,7 @@ class ElmBind {
                         this.waitForElm()
                     }
                 } else {
-                    this.params.elToClone = element
+                    this.params.targetToClone = element
                     this.initializeElm()
                 }
             }
@@ -138,10 +140,10 @@ class ElmBind {
                     if (directMatch || parentMatch) {
                         observer.disconnect()
                         resolve({
-                            'element_type': element_type,
+                            'elementType': element_type,
                             'target': target,
                             'mutation': mutation,
-                            'destruction_type': directMatch ? "direct-match" : parentMatch ? "parent-match" : "unknown",
+                            'destructionMethod': directMatch ? "direct match" : parentMatch ? "parent match" : "unknown",
                         })
                     }
                 })
@@ -294,12 +296,12 @@ class ElmBind {
         this.params.onCreated && this.onCreated()
     }
     dupliacteElm() {
-        this.newElm = this.params.elToClone.cloneNode(true)
+        this.newElm = this.params.targetToClone.cloneNode(true)
         this.newElm.setAttribute('bindly-element-type', 'bound-element')
         this.trackElmDeletion( this.newElm, 'bound-element' )
     }
     hideOriginal() {
-        this.params.elToClone.style.display = 'none'
+        this.params.targetToClone.style.display = 'none'
     }
     setNewElmId() {
         if (this.params.id) this.newElm.id = this.params.id
@@ -317,10 +319,10 @@ class ElmBind {
         this.newElm.addEventListener(listFor, callback)
     }
     insertAfter() {
-        this.params.elToClone.parentNode.insertBefore(this.newElm, this.params.elToClone.nextSibling)
+        this.params.targetToClone.parentNode.insertBefore(this.newElm, this.params.targetToClone.nextSibling)
     }
     insertBefore() {
-        this.params.elToClone.parentNode.insertBefore(this.newElm, this.params.elToClone)
+        this.params.targetToClone.parentNode.insertBefore(this.newElm, this.params.targetToClone)
     }
     onCreated() {
         this.params.onCreated(this.originalElm, this.newElm)
@@ -332,4 +334,43 @@ class ElmBind {
 
 function bindElement(params) {
     return new ElmBind(params)
+}
+
+// awaitPresence offers a simple option to await the presence of an element.
+// An ideal use case would be for when you need to collect data from an element before proceeding with other functions.
+async function awaitPresence(selector, jquery = false) {
+    if (jquery == false) return new Promise(resolve => {
+        if (document.querySelector(selector)) {
+            return resolve(document.querySelector(selector))
+        }
+
+        let observer = new MutationObserver(mutations => {
+            if (document.querySelector(selector)) {
+                resolve(document.querySelector(selector))
+                observer.disconnect();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        })
+    })
+
+    // JQUERY MODE:
+    return new Promise(resolve => {
+        if ($(selector)[0]) {
+            return resolve($(selector)[0])
+        }
+        let observer = new MutationObserver(mutations => {
+            if ($(selector)[0]) {
+                resolve($(selector)[0])
+                observer.disconnect();
+            }
+        });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
 }
