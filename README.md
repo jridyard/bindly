@@ -2,7 +2,7 @@
   <img alt="cgapp logo" src="https://i.ibb.co/drmDMXt/bindlyJS.png" width="65px"/><br/>
   Bindly.JS
 </h1>
-<p align="center">Simplify the process of injecting elements for your browser extensions projects.</br>Manipulate & track DOM elements by passing straightforward arguments via JSON.</p>
+<p align="center">Simplify the process of managing elements for your browser extensions projects.</br>Duplicate, manipulate, and track changes on DOM elements through straightforward arguments.</p>
 
 ## ⚡️ Quick start
 
@@ -11,11 +11,11 @@ Download `bindly.js` from this repo and add it to your project as a content scri
 ## ⭐️ Usage
 
 ```javascript
-// The selector of the element you'd like to duplicate or manipulate.
+// The selector of the element you'd like to duplicate, manipulate, or track.
 const mySelector = '.selectorClass'
 
 const myNewElement = bindElement({
-    'el': mySelector, // pass a selector
+    'target': mySelector, // pass a selector
     'bindAll': true, // if bindAll is true, it will bind every element with the 'el' selector.
     'duplicate': true, // if duplicate is set, a newElement will be created to mirror the target 'el'
     'hideOriginal': false, // if duplicate is true, this will hide the original element if set to true.
