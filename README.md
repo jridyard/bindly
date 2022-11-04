@@ -14,7 +14,7 @@ Download `bindly.js` from this repo and add it to your project as a content scri
 // The selector of the element you'd like to duplicate, manipulate, or track.
 const mySelector = '.selectorClass'
 
-const myNewElement = bindElement({
+const myNewElement = Bindly({
     'target': mySelector, // pass a selector
     'bindAll': true, // if bindAll is true, it will bind every element with the 'el' selector.
     'duplicate': true, // if duplicate is set, a newElement will be created to mirror the target 'el'
@@ -47,9 +47,9 @@ myNewElement.bind() // starts binding the element
 
 ```
 
-If you would like to remove any injections, simple call `myNewElement.destroy()` and you will be able to re-inject your elements by calling `.bind()` again whenever you'd like.
+If you would like to remove the injections, call `myNewElement.destroy()` and everything will be removed/reset. You'll then be able to re-inject your elements at any time by calling `.bind()` again.
 
-- 📺 30s demo video: https://vimeo.com/758316166
+Interested in seeing it in action on Zillow? 📺 30s demo video: https://vimeo.com/758316166
 
 ## ⚙️ Options
 
