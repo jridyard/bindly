@@ -11,15 +11,13 @@ Download `bindly.js` from this repo and add it to your project as a content scri
 ## ⭐️ Usage
 
 ```javascript
-// The selector of the element you'd like to duplicate, manipulate, or track.
-const mySelector = '.selectorClass'
 
 const myNewElement = Bindly({
-    'target': mySelector, // pass a selector
-    'bindAll': true, // if bindAll is true, it will bind every element with the 'el' selector.
+    'target': '.selectorClass', // pass a selector
     'duplicate': true, // if duplicate is set, a newElement will be created to mirror the target 'el'
-    'hideOriginal': false, // if duplicate is true, this will hide the original element if set to true.
     'insert': 'after', // if duplicate is true, this will insert the new element after or before the original in the DOM.
+    'bindAll': true, // if bindAll is true, it will bind every element with the 'el' selector.
+    'hideOriginal': false, // if duplicate is true, this will hide the original element if set to true.
     'addClasses': ['classOne', 'classTwo'], // adds classes to the target (original if duplicate = false, newElement if duplicate = true)
     'setAttributes': { // sets attributes for the target on creation
         'attrName': 'attrValue'
@@ -29,8 +27,9 @@ const myNewElement = Bindly({
             console.log("Bindly element clicked!")
         }
     },
-    'onCreated': (originalElement, newElement) => { // once the 'el' is created in the DOM, this callback will run.
+    'onCreated': (e) => { // once the 'el' is created in the DOM, this callback will run.
         // you can adjust the new element bindly created (or original) like you would any DOM element.
+        const newElement = e.newElement
         newElement.textContent = "Bindly duplicated element!"
     },
     'onDestroyed': (e) => { // when either target element is destroyed, this callback will run and give information on which element was destroyed and how.
@@ -49,19 +48,21 @@ myNewElement.bind() // starts binding the element
 
 If you would like to remove the injections, call `myNewElement.destroy()` and everything will be removed/reset. You'll then be able to re-inject your elements at any time by calling `.bind()` again.
 
-Interested in seeing it in action on Zillow? 📺 30s demo video: https://vimeo.com/758316166
+Note: If you need to collect data on the elements before they are removed when calling `.destroy()` you can pass a callback to get info on all the bound elements like so: `myNewElement.destroy((e) => { console.log(e} })`
+
+Interested in seeing Bindly's element duplication in action on Zillow? Watch this 30s demo video: https://vimeo.com/758316166 📺
 
 ## ⚙️ Options
 
 | Option                | Description                                                                | Type     | Default        | Required?  |
 |-----------------------|----------------------------------------------------------------------------|----------|----------------|------------|
 | `target`              | Selector of the element you'd like to bind                                 | `string` | _None_         | Yes        |
+| `duplicate`           | Duplicates the target element and injects before or after the target elm.  | `bool`   | `true`         | No         |
+| `insert`              | Insert the duplicated element `before` or `after` the original element     | `string` | `after`        | No         |
 | `bindAll`             | Applies bindly rules to all elements or just the first to appear.          | `bool`   | `true`         | No         |
 | `jquery`              | Use jquery to target elements with advanced selectors                      | `bool`   | `false`        | No         |
-| `duplicate`           | Duplicates the target element if set to true                               | `bool`   | `false`        | No         |
 | `hideOriginal`        | Sets display of the original element to `none`                             | `bool`   | `false`        | No         |
 | `runBeforeComplete`   | Bindly will launch when instantiated, as opposed to being initiated on page state readiness.  | `bool`   | `false`        | No         |
-| `insert`              | Insert the duplicated element `before` or `after` the original element     | `string` | `after`        | No         |
 | `id`                  | Set the ID for the new element                                             | `string` | _None_         | No         |
 | `className`           | Set the className for the new element                                      | `string` | _None_         | No         |
 | `addClasses`          | Add additional classes to the new element                                  | `array`  | _None_         | No         |

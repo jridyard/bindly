@@ -1,5 +1,5 @@
 /*
-Version: v2.0.2 ( updates @ github.com/jridyard/bindly )
+Version: v1.1.8 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
@@ -12,6 +12,7 @@ class ElmBind {
 
         // Set defaults for params that may not be passed and need to be set to TRUE.
         if (keyNotListed('bindAll')) params['bindAll'] = true
+        if (keyNotListed('duplicate')) params['duplicate'] = true
 
         this.bindlyStyleDetails = {
             'bound-element': {},
@@ -363,7 +364,11 @@ class ElmBind {
         this.params.targetToClone.parentNode.insertBefore(this.newElm, this.params.targetToClone)
     }
     onCreated() {
-        this.params.onCreated(this.originalElm, this.newElm)
+        const createdInfo = {
+            'originalElement': this.originalElm,
+            'newElement': this.newElm,
+        }
+        this.params.onCreated(createdInfo)
     }
     onDestroyed(removalEventDetails) {
         const uuid_removed = removalEventDetails.target.getAttribute('bindly-id')
@@ -374,7 +379,9 @@ class ElmBind {
         if (this.enabled) {
 
             // this callback allows the user to modify the originalElm back to its initial state and collect metadata or w/e they want from the duplicated elm.
-            if (onDestroyCallback) onDestroyCallback(this.originalElm, this.newElm)
+            const newElments = Object.assign({}, this.elmsInjected)
+            const originalElements = Object.assign({}, this.originalElmsBound)
+            if (onDestroyCallback) onDestroyCallback({'originalElements': originalElements, 'newElements': newElments})
 
             if (this.awaitPresenceObserver) this.awaitPresenceObserver.disconnect() // it's possible for the element to already be present and bindAll be set to false. This would cause the awaitPresenceObserver never to have been created.
             this.disconnectObservers(this.removalObservers, 'original')
