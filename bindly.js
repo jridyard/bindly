@@ -12,7 +12,7 @@ class ElmBind {
 
         // Set defaults for params that may not be passed and need to be set to TRUE.
         if (keyNotListed('bindAll')) params['bindAll'] = true
-        if (keyNotListed('duplicate')) params['duplicate'] = true
+        // if (keyNotListed('duplicate')) params['duplicate'] = true
 
         this.bindlyStyleDetails = {
             'bound-element': {},
