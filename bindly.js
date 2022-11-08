@@ -1,5 +1,5 @@
 /*
-Version: v1.1.8 ( updates @ github.com/jridyard/bindly )
+Version: v1.1.9 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
@@ -306,6 +306,14 @@ class ElmBind {
         })()
         typeof this.params.insert === 'string' ? this.params.insert.toLowerCase() == 'before' ? this.insertBefore() : this.insertAfter() : this.insertAfter()
 
+        // set Elements that are bound to each other
+        if (this.params.duplicate) {
+            const newElmId = this.newElm.getAttribute('bindly-id')
+            const originalElmId = this.originalElm.getAttribute('bindly-id')
+            this.originalElm.setAttribute('bindly-bound-to', newElmId)
+            this.newElm.setAttribute('bindly-bound-to', originalElmId)
+        }
+
         // onAttributeChange =>
         if (this.params.onAttributeChange) {
             this.bindlyStyleDetails['bound-element'][bindly_id] = this.getCurrentStyles(this.newElm)
@@ -373,6 +381,7 @@ class ElmBind {
     onDestroyed(removalEventDetails) {
         const uuid_removed = removalEventDetails.target.getAttribute('bindly-id')
         delete this.elmsInjected[uuid_removed]
+        delete this.originalElmsBound[uuid_removed]
         if (this.params.onDestroyed) this.params.onDestroyed(removalEventDetails)
     }
     destroy(onDestroyCallback) {
@@ -397,6 +406,7 @@ class ElmBind {
                     originalElement.removeAttribute('bindly')
                     originalElement.removeAttribute('bindly-element-type')
                     originalElement.removeAttribute('bindly-id')
+                    originalElement.removeAttribute('bindly-bound-to')
                 }
                 delete this.originalElmsBound[originalElmBoundId]
             }
@@ -442,9 +452,9 @@ function Bindly(params) {
     return new ElmBind(params)
 }
 
-// awaitPresence offers a simple option to await the presence of an element.
+// waitForElm offers a simple option to await the presence of an element.
 // An ideal use case would be for when you need to collect data from an element before proceeding with other functions.
-async function awaitPresence(selector, jquery = false) {
+async function waitForElm(selector, jquery = false) {
     if (jquery == false) return new Promise(resolve => {
         if (document.querySelector(selector)) {
             return resolve(document.querySelector(selector))
