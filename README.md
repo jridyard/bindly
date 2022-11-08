@@ -57,7 +57,7 @@ Interested in seeing Bindly's element duplication in action on Zillow? Watch thi
 | Option                | Description                                                                | Type     | Default        | Required?  |
 |-----------------------|----------------------------------------------------------------------------|----------|----------------|------------|
 | `target`              | Selector of the element you'd like to bind                                 | `string` | _None_         | Yes        |
-| `duplicate`           | Duplicates the target element and injects before or after the target elm.  | `bool`   | `true`         | No         |
+| `duplicate`           | Duplicates the target element and injects before or after the target elm.  | `bool`   | `false`         | No         |
 | `insert`              | Insert the duplicated element `before` or `after` the original element     | `string` | `after`        | No         |
 | `bindAll`             | Applies bindly rules to all elements or just the first to appear.          | `bool`   | `true`         | No         |
 | `jquery`              | Use jquery to target elements with advanced selectors                      | `bool`   | `false`        | No         |
