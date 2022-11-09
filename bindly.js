@@ -1,5 +1,5 @@
 /*
-Version: v1.2.0 ( updates @ github.com/jridyard/bindly )
+Version: v1.2.1 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
@@ -15,8 +15,8 @@ class ElmBind {
         // Set defaults for params that may not be passed and need to be set to TRUE.
         if (keyNotListed('bindAll')) params['bindAll'] = true
         if (keyNotListed('awaitDOM')) params['awaitDOM'] = true
+        if (keyNotListed('duplicate')) params['duplicate'] = true
         if (keyNotListed('groupId')) params['groupId'] = this.guidGenerator()
-        // if (keyNotListed('duplicate')) params['duplicate'] = true
 
 
         this.bindlyStyleDetails = {
@@ -424,6 +424,29 @@ class ElmBind {
 
     }
 
+    getElements() {
+        const groupId = this.groupId
+
+        var elements = {
+            'originalElements': [],
+            'duplicateElements': []
+        }
+    
+        const originalElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="original"]`)
+        for (var i=0; i < originalElements.length; i++) {
+            var originalElement = originalElements[i]
+            elements['originalElements'].push(originalElement)
+        }
+    
+        const duplicateElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="duplicate"]`)
+        for (var i=0; i < duplicateElements.length; i++) {
+            var duplicateElement = duplicateElements[i]
+            elements['duplicateElements'].push(duplicateElement)
+        }
+    
+        return elements
+    }
+
     destroy(onDestroyCallback) {
         if (this.enabled) {
 
@@ -437,7 +460,7 @@ class ElmBind {
             const duplicateElements = Object.assign({}, this.duplicateElms)
             const originalElements = Object.assign({}, this.originalElms)
 
-            if (onDestroyCallback) onDestroyCallback({'originalElements': originalElements, 'duplicateElements': duplicateElements, 'groupId': this.params.groupId })
+            if (onDestroyCallback) onDestroyCallback({'originalElements': Object.values(originalElements), 'duplicateElements': Object.values(duplicateElements) })
 
             if (this.awaitPresenceObserver) this.awaitPresenceObserver.disconnect() // it's possible for the element to already be present and bindAll be set to false. This would cause the awaitPresenceObserver never to have been created.
             
@@ -584,28 +607,4 @@ function resetOriginals(e, originalDisplay = 'block') {
         var target = targets[i]
         target.style.display = originalDisplay
     }
-}
-
-
-// collectElements gets you all the elements in a given group.
-// Note: This only works if you set a "groupId" in the params.
-function collectElements(groupId) {
-    var elements = {
-        'originalElements': [],
-        'duplicateElements': []
-    }
-
-    const originalElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="original"]`)
-    for (var i=0; i < originalElements.length; i++) {
-        var originalElement = originalElements[i]
-        elements['originalElements'].push(originalElement)
-    }
-
-    const duplicateElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="duplicate"]`)
-    for (var i=0; i < duplicateElements.length; i++) {
-        var duplicateElement = duplicateElements[i]
-        elements['duplicateElements'].push(duplicateElement)
-    }
-
-    return elements
 }
