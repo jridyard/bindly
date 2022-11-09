@@ -15,8 +15,8 @@ class ElmBind {
         // Set defaults for params that may not be passed and need to be set to TRUE.
         if (keyNotListed('bindAll')) params['bindAll'] = true
         if (keyNotListed('awaitDOM')) params['awaitDOM'] = true
+        if (keyNotListed('groupId')) params['groupId'] = this.guidGenerator()
         // if (keyNotListed('duplicate')) params['duplicate'] = true
-        // if (keyNotListed('groupId')) params['groupId'] = this.guidGenerator()
 
 
         this.bindlyStyleDetails = {
@@ -474,6 +474,7 @@ class ElmBind {
                 originalElement.removeAttribute('bindly-element-type')
                 originalElement.removeAttribute('bindly-id')
                 originalElement.removeAttribute('bindly-bound-to')
+                originalElement.removeAttribute('bindly-group-id')
             }
             delete elements.originalElms[originalElmBoundId]
         }
