@@ -2,7 +2,7 @@
   <img alt="cgapp logo" src="https://i.ibb.co/drmDMXt/bindlyJS.png" width="65px"/><br/>
   Bindly.JS
 </h1>
-<p align="center">Simplify the process of managing elements for your browser extensions projects.</br>Duplicate, manipulate, and track changes on DOM elements through straightforward arguments.</p>
+<p align="center">Simplify the process of managing elements for your browser extensions projects.</br>Duplicate, manipulate, and track DOM changes through straightforward arguments.</p>
 
 ## ⚡️ Installation
 
