@@ -79,6 +79,12 @@ class ElmBind {
     }
 
     waitForElm() {
+        // no need to ever have waitForElm running more than once at a time.
+        if (this.awaitingElm) return
+        this.awaitingElm = true
+
+        if (this.awaitPresenceObserver) this.awaitPresenceObserver.disconnect() // if we are on bindall then we are already listening for new elements to be created, this would cause a recursive loop if don't disconnect here first in that.
+        
         new Promise(resolve => {
             if (this.params.jquery == true) {
                 if ($(`${this.params.target}:not([bindly="bound"])`).length >= 1) {
@@ -108,6 +114,9 @@ class ElmBind {
                 })
             }
         }).then((originalElement) => {
+            // waitForElm has no completed a cycle, next time we call WFE, we need to make sure it runs.
+            this.awaitingElm = false
+
             const bindly_id = this.guidGenerator()
             originalElement.setAttribute('bindly-id', bindly_id)
             originalElement.setAttribute('bindly-element-type', 'original')
@@ -162,7 +171,7 @@ class ElmBind {
                             'elementType': element_type,
                             'target': target,
                             'mutation': mutation,
-                            'destructionMethod': directMatch ? "direct match" : parentMatch ? "parent match" : "unknown",
+                            'destructionMethod': directMatch ? "direct-match" : parentMatch ? "parent-match" : "unknown",
                         })
                     }
                 })
@@ -175,9 +184,6 @@ class ElmBind {
             this.removalObservers[element_type][bindly_element_id] = observer
         }).then((removalEventDetails) => {
             this.onDestroyed(removalEventDetails)
-
-            // Check if the observer is already on, if it is, disconnect it. We don't want multiple observers searching for elements.
-            if (this.awaitPresenceObserver) this.awaitPresenceObserver.disconnect()  // if we are on bindall then we are already listening for new elements to be created, this would cause a recursive loop if don't disconnect here first in that.
             this.waitForElm()
         })
     }
@@ -482,7 +488,9 @@ class ElmBind {
             }
             this.destroyElements(elementsToRemove)
     
+            this.awaitingElm = false
             this.enabled = false
+            
         }
     }
 
