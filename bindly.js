@@ -1,5 +1,5 @@
 /*
-Version: v1.2.1 ( updates @ github.com/jridyard/bindly )
+Version: v1.2.2 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
