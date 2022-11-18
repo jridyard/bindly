@@ -19,7 +19,6 @@ Download `bindly.js` from this repo and add it to your project as a content scri
 
 const myNewElement = Bindly({
     'target': '[selector]',
-    'awaitDOM': true, // waits to start binding elements until DOM is ready.
     'bindAll': true, // bind only to the first element to appear or all occurences
     'duplicate': true, // set to false to track only the target itself.
     'insert': 'after', // insert the duplicate element before or after the target
@@ -34,7 +33,7 @@ const myNewElement = Bindly({
     'onDestroyed': (e) => {
         console.log("Element Destroyed", e)
     },
-    'onAttributeChange': (e) => {
+    'onMutation': (e) => {
         console.log('Attribute Changed!', e)
     }
 });
@@ -52,7 +51,7 @@ There are additional options available for setting default adjustments. See the 
 ### Remove & Reset Binds
 
 ```javascript
-myNewElement.destroy((e) => {
+myNewElement.unbind((e) => {
     console.log("Bindly instance destroyed", e)
 })
 ```
@@ -116,7 +115,7 @@ For more information on all the default options available, view the table entitl
 | `originalElement`    | Pass arguments to set defaults for the original element. See `Default Element Options` table for more details | `object`   | _None_        | No         |
 | `onCreated`           | When the target element is created, this callback will run and allow you to adjust the `originalElement` and `newElement`        | `callback` | _None_ | No         |
 | `onDestroyed`         | When either the target or new element is removed from the DOM, this callback will run and give you information on the removal    | `callback` | _None_ | No         |
-| `onAttributeChange`   | When an attribute changes, you'll be able to see that here. Also, when anything that impacts styles occur, you'll get information on those changes       | `callback` | _None_ | No         |
+| `onMutation`   | When an attribute changes, you'll be able to see that here. Also, when anything that impacts styles occur, you'll get information on those changes       | `callback` | _None_ | No         |
 
 ### Default Element Options
 | Option                | Description                                                                | Type     | Default        | Required?  |
