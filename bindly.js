@@ -1,5 +1,5 @@
 /*
-Version: v1.2.1 ( updates @ github.com/jridyard/bindly )
+Version: v1.2.3 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
@@ -10,12 +10,22 @@ class ElmBind {
         function keyNotListed(key) { return !Object.keys(params).includes(key) }
 
         // if the user did not pass a target, we cant do anything and need to warn them.
-        if (keyNotListed('target')) return console.error('Bindly: You must pass a target element selector.')
+        if (keyNotListed('target')) {
+            console.error('Bindly: You must pass a target element selector. Example: Bindly({target: ".my-element"})');
+            this.dontInitialize = true;
+        }
+        if (params['target'].length == 0) {
+            console.error('Bindly: You must pass a target element selector. Example: Bindly({target: ".my-element"})');
+            this.dontInitialize = true;
+        }
 
         // Set defaults for params that may not be passed and need to be set to TRUE.
-        if (keyNotListed('bindAll')) params['bindAll'] = true
-        if (keyNotListed('awaitDOM')) params['awaitDOM'] = true
         if (keyNotListed('duplicate')) params['duplicate'] = true
+        if (keyNotListed('bindAll')) params['bindAll'] = true
+        if (keyNotListed('rebind')) params['rebind'] = true
+        if (keyNotListed('hard-rebind')) params['hard-rebind'] = true
+        if (keyNotListed('logs')) params['logs'] = true
+        if (keyNotListed('delay')) params['delay'] = 1
         if (keyNotListed('groupId')) params['groupId'] = this.guidGenerator()
 
 
@@ -79,77 +89,178 @@ class ElmBind {
     }
 
     waitForElm() {
+        // no need to ever have waitForElm running more than once at a time.
+        if (this.awaitingElm) return
+        this.awaitingElm = true
+
+        if (this.awaitPresenceObserver) this.awaitPresenceObserver.disconnect() // if we are on bindall then we are already listening for new elements to be created, this would cause a recursive loop if don't disconnect here first in that.
+        
         new Promise(resolve => {
+            // --- JQUERY MODE --- \\
             if (this.params.jquery == true) {
-                if ($(`${this.params.target}:not([bindly="bound"])`).length >= 1) {
-                    return resolve($(`${this.params.target}:not([bindly="bound"])`)[0])
+                const element_list = $(`${this.params.target}:not([bindly="bound"])`)
+                if (element_list.length >= 1) {
+                    const element = element_list[0]
+                    const correctElement = this.checkRules(element)
+                    if (correctElement) return resolve(element)
                 }
+
                 this.awaitPresenceObserver = new MutationObserver(mutations => {
-                    if ($(`${this.params.target}:not([bindly="bound"])`).length >= 1) {
-                        resolve($(`${this.params.target}:not([bindly="bound"])`)[0])
-                        this.awaitPresenceObserver.disconnect();
+                    const element_list = $(`${this.params.target}:not([bindly="bound"])`)
+                    if (element_list.length >= 1) {
+                        const element = element_list[0]
+                        const correctElement = this.checkRules(element)
+                        if (correctElement) {
+                            resolve(element)
+                            this.awaitPresenceObserver.disconnect();
+                        }
                     }
                 });
-                this.awaitPresenceObserver.observe(document.body, { childList: true, subtree: true })
+                this.initializePresenceObserver()
             }
+            // --- REGULAR MODE --- \\
             else {
-                if (document.querySelector(`${this.params.target}:not([bindly="bound"])`)) {
-                    return resolve(document.querySelector(`${this.params.target}:not([bindly="bound"])`))
+                const element = document.querySelector(`${this.params.target}:not([bindly="bound"])`)
+                if (element) {
+                    const correctElement = this.checkRules(element)
+                    if (correctElement) return resolve(element)
                 }
                 this.awaitPresenceObserver = new MutationObserver(mutations => {
-                    if (document.querySelector(`${this.params.target}:not([bindly="bound"])`)) {
-                        resolve(document.querySelector(`${this.params.target}:not([bindly="bound"])`))
-                        this.awaitPresenceObserver.disconnect();
+                    const element = document.querySelector(`${this.params.target}:not([bindly="bound"])`)
+                    if (element) {
+                        const correctElement = this.checkRules(element)
+                        if (correctElement) {
+                            resolve(element)
+                            this.awaitPresenceObserver.disconnect();
+                        }
                     }
                 });
-                this.awaitPresenceObserver.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                })
+                this.initializePresenceObserver()
             }
         }).then((originalElement) => {
-            const bindly_id = this.guidGenerator()
-            originalElement.setAttribute('bindly-id', bindly_id)
-            originalElement.setAttribute('bindly-element-type', 'original')
-            originalElement.setAttribute('bindly', 'bound')
-
-            if (this.params.groupId) originalElement.setAttribute('bindly-group-id', this.params.groupId)
-
-            const originalElm = originalElement
-            this.originalElms[bindly_id] = originalElm
-
-            if (!this.params.duplicate) {
-                // element is created, run OnCreated callback if user passed one
-                if (this.params.onCreated) {
-                    const createdInfo = {
-                        'originalElement': originalElm,
-                        'duplicateElement': null,
-                    }
-                    this.onCreated(createdInfo)
-                }
-            }
-
-            this.trackElmDeletion(originalElement, 'original', bindly_id)
-
-            if (this.params.duplicate) {
-                const targetToClone = originalElement
-                this.initializeDuplicateElm(targetToClone)
-            }
-
-            const manipulationParams = this.params.originalElement // .adjustments?
-            if (manipulationParams) this.manipulateElm(originalElm, manipulationParams)
-
-            if (this.params.onAttributeChange) {
-                this.bindlyStyleDetails['original'][bindly_id] = this.getCurrentStyles(originalElm)
-                this.onAttributeChange(originalElm, 'original', bindly_id)
-            }
-
-            if (this.params.bindAll) this.waitForElm()
-
+            // waitForElm has no completed a cycle, next time we call WFE, we need to make sure it runs.
+            this.awaitingElm = false
+            this.bindElement(originalElement)
         })
     }
 
-    trackElmDeletion(target, element_type, bindly_element_id) {
+    initializePresenceObserver() {
+        try {
+            this.awaitPresenceObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        } catch (err) {
+            if (err.toString().includes('TypeError: Failed to execute \'observe\' on \'MutationObserver\': parameter 1 is not of type \'Node\'.')) {
+                if (!this.params.awaitDOM) console.error("Bindly: Body element not found. This is most likely an issue with how the page renders elements and bindly being instantied too quickly. To fix this, try setting the paramater 'awaitDOM' to true or adjust bindly's initialization delay by setting the 'delay' parameter, which takes an int in milliseconds.")
+                if (this.params.awaitDOM) console.error("Bindly: Body element not found in document. Please report this error to the developer.")
+            }
+            console.error(err)
+        }
+    }
+
+    checkRules(element) {
+        if (!this.params.rules) return true
+
+        const passed = this.params.rules(element)
+        if (passed) return true
+        if (!passed) {
+            // we dont want to create a recursive loop of re-checking if it failed to pass the rules.
+            // set the attr to avoid double check and simply dont resolve afterwards.
+            element.setAttribute('bindly', 'bound')
+            element.setAttribute('bindly-rules', 'failed')
+            return false
+        }
+    }
+
+    bindElement(originalElement) {
+        const bindly_id = this.guidGenerator()
+        originalElement.setAttribute('bindly-id', bindly_id)
+        originalElement.setAttribute('bindly-type', 'original')
+        originalElement.setAttribute('bindly', 'bound')
+        originalElement.setAttribute('bindly-group-id', this.params.groupId)
+
+        const originalElm = originalElement
+        this.originalElms[bindly_id] = originalElm
+
+        if (!this.params.duplicate) {
+            // element is created, run OnCreated callback if user passed one
+            if (this.params.onCreated) {
+                const createdInfo = {
+                    'originalElement': originalElm,
+                    'duplicateElement': null,
+                }
+                this.onCreated(createdInfo)
+            }
+        }
+
+        this.trackElmDeletion(originalElement)
+
+        if (this.params.duplicate) {
+            const targetToClone = originalElement
+            this.initializeDuplicateElm(targetToClone)
+        }
+
+        const manipulationParams = this.params.originalElement // .adjustments?
+        if (manipulationParams) this.manipulateElm(originalElm, manipulationParams)
+
+        if (this.params.onAttributeChange) {
+            this.bindlyStyleDetails['original'][bindly_id] = this.getCurrentStyles(originalElm)
+            this.onAttributeChange(originalElm, 'original', bindly_id)
+        }
+
+        if (this.params.bindAll) this.waitForElm()
+    }
+
+    pairElements(newElement, originalElement) {
+        const originalElm_id = originalElement.getAttribute('bindly-id')
+        if (!originalElm_id) {
+            return console.error("Bindly: Cannot pair to a non bindly element. The original element you passed has no bindly-id attribute.")
+        }
+
+        const bindly_id = this.guidGenerator()
+
+        newElement.setAttribute('bindly', 'bound')
+        newElement.setAttribute('bindly-type', 'duplicate')
+        newElement.setAttribute('bindly-group-id', this.params.groupId)
+        newElement.setAttribute('bindly-id', bindly_id)
+        newElement.setAttribute('bindly-pair-id', originalElm_id)
+
+        this.trackElmDeletion(newElement)
+
+        if (this.params.onAttributeChange) {
+            this.bindlyStyleDetails['duplicate'][bindly_id] = this.getCurrentStyles(newElement)
+            this.onAttributeChange(newElement, 'duplicate', bindly_id)
+        }
+    }
+
+    rebind(e) {
+        // rebind is useful when a duplicate element is removed DIRECTLY.
+        // Sometimes, certain sites will randomly jettison our duplicate element.
+        // this method allows us to rebind the original element and maintain a seamless look through the tumultous element rendering process.
+        const originalElement = document.querySelector(`[bindly-id="${e.target.getAttribute('bindly-pair-id')}"]`);
+        if (originalElement) {
+            if (this.params.logs) console.warn('Bindly: Duplicate element removed directly. The original element was still present. Bindly has re-injected the duplicate element. Turn this feature off by setting the paramater "rebind" to false.')
+            this.bindElement(originalElement)
+        }
+        else {
+            if (this.params.logs) console.warn('Bindly: Duplicate element removed directly. The original element was NOT still present. Bindly has run some fairly sketchy code to try to solve the problem. If you are having issues, turn this feature off by setting the paramater "hard-rebind" to false.')
+            if (this.params['hard-rebind']) {
+                // this is straight up sketchy code.
+                // there is an extremely rare issue when loading a single page app that causes a misfire and rebind fails, but the elements inexpciably retain bindly properties???
+                // the specific issue was found on zillow.com when loading in the home details modal for the home fact bullets. ( selector = ".ds-data-view-list .dpf__sc-2arhs5-0.ecJCxh" )
+                // the following solution fixed the problem, but I fear it could cause problems for otherwise functional bindly instances in the future.
+                document.querySelectorAll(`[bindly-group-id="${this.params.groupId}"]`).forEach(elm => {
+                    elm.removeAttribute('bindly')
+                });
+            }
+        }
+    }
+
+    trackElmDeletion(target) {
+        const element_type = target.getAttribute('bindly-type')
+        const bindly_element_id = target.getAttribute('bindly-id')
+
         new Promise(resolve => {
             let observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
@@ -162,7 +273,7 @@ class ElmBind {
                             'elementType': element_type,
                             'target': target,
                             'mutation': mutation,
-                            'destructionMethod': directMatch ? "direct match" : parentMatch ? "parent match" : "unknown",
+                            'destructionMethod': directMatch ? "direct-match" : parentMatch ? "parent-match" : "unknown",
                         })
                     }
                 })
@@ -175,9 +286,6 @@ class ElmBind {
             this.removalObservers[element_type][bindly_element_id] = observer
         }).then((removalEventDetails) => {
             this.onDestroyed(removalEventDetails)
-
-            // Check if the observer is already on, if it is, disconnect it. We don't want multiple observers searching for elements.
-            if (this.awaitPresenceObserver) this.awaitPresenceObserver.disconnect()  // if we are on bindall then we are already listening for new elements to be created, this would cause a recursive loop if don't disconnect here first in that.
             this.waitForElm()
         })
     }
@@ -218,7 +326,8 @@ class ElmBind {
             });
         
             observer.observe(document.body.parentElement, {
-                childList: false,
+                characterData: true,
+                childList: true, // not 100% sure we want to keep this turned on...
                 subtree: true,
                 attributes: true
             });
@@ -255,7 +364,7 @@ class ElmBind {
 
             const attribute_change_record = {
                 'attributeTrigger': record.attributeName,
-                'bindlyElementType': bindly_element_type,
+                'elementType': bindly_element_type,
                 'target': target_element,
                 'mutation': record,
                 'styleChanges': styleChangeLog,
@@ -287,13 +396,13 @@ class ElmBind {
 
         const bindly_id = this.guidGenerator()
         duplicateElm.setAttribute('bindly-id', bindly_id)
-        duplicateElm.setAttribute('bindly-element-type', 'duplicate')
+        duplicateElm.setAttribute('bindly-type', 'duplicate')
         this.duplicateElms[bindly_id] = duplicateElm
 
-        if (this.params.groupId) duplicateElm.setAttribute('bindly-group-id', this.params.groupId)
+        duplicateElm.setAttribute('bindly-group-id', this.params.groupId)
 
         // track removal of the bound element
-        this.trackElmDeletion( duplicateElm, 'duplicate', bindly_id )
+        this.trackElmDeletion( duplicateElm )
 
         const manipulationParams = this.params.duplicateElement // .adjustments?
         if (manipulationParams) this.manipulateElm(duplicateElm, manipulationParams)
@@ -304,8 +413,8 @@ class ElmBind {
         // set Elements that are bound to each other
         const duplicateElmId = duplicateElm.getAttribute('bindly-id')
         const originalElmId = targetToClone.getAttribute('bindly-id')
-        targetToClone.setAttribute('bindly-bound-to', duplicateElmId)
-        duplicateElm.setAttribute('bindly-bound-to', originalElmId)
+        targetToClone.setAttribute('bindly-pair-id', duplicateElmId)
+        duplicateElm.setAttribute('bindly-pair-id', originalElmId)
         
         // onAttributeChange =>
         if (this.params.onAttributeChange) {
@@ -391,20 +500,28 @@ class ElmBind {
     }
 
     onDestroyed(removalEventDetails) {
-        const uuid_removed = removalEventDetails.target.getAttribute('bindly-id')
+        const target_removed = removalEventDetails.target
+        target_removed.removeAttribute('bindly')
+        const uuid_removed = target_removed.getAttribute('bindly-id')
         delete this.duplicateElms[uuid_removed]
         delete this.originalElms[uuid_removed]
+        
+        if (removalEventDetails.elementType == 'duplicate' && removalEventDetails.destructionMethod == 'direct-match') {
+            if (this.params.rebind) this.rebind(removalEventDetails)
+        }
+
         if (this.params.onDestroyed) this.params.onDestroyed(removalEventDetails)
     }
 
-    collectElements(groupId) {
-
+    validateElements() {
         // There are super rare cases where elements will be removed, but reinjected by the page.
         // This causes our onDestroy method to remove them from our global object, but they are still in the DOM.
-        // When you run .destroy(), these rare edge case elements will not be removed from the DOM.
+        // When you run .unbind(), these rare edge case elements will not be removed from the DOM.
         // If the user passed a groupId, we can do a manual check for elements missing from our global object to make sure we cover this edge case.
 
-        const originalElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="original"]`)
+        const groupId = this.params.groupId
+
+        const originalElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-type="original"]`)
         for (var i=0; i < originalElements.length; i++) {
             var originalElement = originalElements[i]
             var originalElmId = originalElement.getAttribute('bindly-id')
@@ -413,7 +530,7 @@ class ElmBind {
             }
         }
     
-        const duplicateElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="duplicate"]`)
+        const duplicateElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-type="duplicate"]`)
         for (var i=0; i < duplicateElements.length; i++) {
             var duplicateElement = duplicateElements[i]
             var duplicateElmId = duplicateElement.getAttribute('bindly-id')
@@ -425,20 +542,20 @@ class ElmBind {
     }
 
     getElements() {
-        const groupId = this.groupId
+        const groupId = this.params.groupId
 
         var elements = {
             'originalElements': [],
             'duplicateElements': []
         }
     
-        const originalElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="original"]`)
+        const originalElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-type="original"]`)
         for (var i=0; i < originalElements.length; i++) {
             var originalElement = originalElements[i]
             elements['originalElements'].push(originalElement)
         }
     
-        const duplicateElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-element-type="duplicate"]`)
+        const duplicateElements = document.querySelectorAll(`[bindly-group-id="${ groupId }"][bindly-type="duplicate"]`)
         for (var i=0; i < duplicateElements.length; i++) {
             var duplicateElement = duplicateElements[i]
             elements['duplicateElements'].push(duplicateElement)
@@ -447,14 +564,19 @@ class ElmBind {
         return elements
     }
 
-    destroy(onDestroyCallback) {
+    displayOriginalElms(originalDisplay = 'block') {
+        const targets = Object.values(this.originalElms)
+    
+        for (var i=0; i < targets.length; i++) {
+            var target = targets[i]
+            target.style.display = originalDisplay
+        }
+    }
+
+    unbind(onDestroyCallback) {
         if (this.enabled) {
 
-            const groupId = this.params.groupId
-            if (groupId) {
-                // if there is a group id, we can run collectElements for more precise element revokation.
-                this.collectElements(groupId)
-            }
+            this.validateElements()
 
             // this callback allows the user to modify the originalElm back to its initial state and collect metadata or w/e they want from the duplicated elm.
             const duplicateElements = Object.assign({}, this.duplicateElms)
@@ -482,7 +604,9 @@ class ElmBind {
             }
             this.destroyElements(elementsToRemove)
     
+            this.awaitingElm = false
             this.enabled = false
+            
         }
     }
 
@@ -494,9 +618,9 @@ class ElmBind {
             const originalElement = elements.originalElms[originalElmBoundId]
             if (originalElement) {
                 originalElement.removeAttribute('bindly')
-                originalElement.removeAttribute('bindly-element-type')
+                originalElement.removeAttribute('bindly-type')
                 originalElement.removeAttribute('bindly-id')
-                originalElement.removeAttribute('bindly-bound-to')
+                originalElement.removeAttribute('bindly-pair-id')
                 originalElement.removeAttribute('bindly-group-id')
             }
             delete elements.originalElms[originalElmBoundId]
@@ -515,9 +639,31 @@ class ElmBind {
     }
 
     bind() {
+        if (this.dontInitialize) return
+
         if (!this.enabled) {
-            this.awaitDOM() // resets the original launch routine
+
+            if (this.params.awaitDOM) {
+                this.enabled = true
+                this.awaitDOM() // only awaits dom if not already fully loaded, otherwise runs right away.
+                return
+            }
+
+            // if never intialized...
+            if (!this.initialized) {
+                // If we have yet to initialize, we need to wait a single millisecond for the body to load in case the user is running bindly at the same time the body is being loaded.
+                // The body ALWAYS loads in the first millisecond.
+                return setTimeout(() => {
+                    this.enabled = true
+                    this.initialized = true
+                    this.waitForElm()
+                }, this.params.delay);
+            }
+
+            // else if already initialized...
             this.enabled = true
+            this.waitForElm()
+
         }
     }
 
@@ -538,7 +684,7 @@ function Bindly(params) {
 
 
 /*
-    Below are auxiliary functions that technically do not have to do with Bindly directly, but can assist in certain cases for features that fall outside Bindly's default scope!
+    Below is an auxiliary function that technically does not have to do with Bindly directly, but can assist in certain cases for features that fall outside Bindly's default scope!
 */
 
 // waitForElm offers a simple option to await the presence of an element.
@@ -578,33 +724,4 @@ async function waitForElm(selector, jquery = false) {
             subtree: true
         });
     });
-}
-
-// getHTML just provides a simple function to call to get HTML from a file that can be inserted in the "innerHTML" adjustment param.
-async function getHTML(url) {
-    var htmlText = await fetch(url).then(response => response.text()).then(data => { return data })
-    return htmlText
-}
-
-// resetIfOriginalPresent is a function that can be inserted in the 'onDestroyed' callback that will reset / reinject the duplicate element if the duplicate is removed, but the original is still there.
-function resetIfOriginalPresent(e, originalDisplay = 'block') {
-    if (e.elementType == 'duplicate') { // && removalEventDetails.destructionMethod == "direct match"
-        const elmRemoved = e.target
-        const boundTo = elmRemoved.getAttribute('bindly-bound-to')
-        const boundElm = document.querySelector(`[bindly-id="${ boundTo }"]`)
-        if (boundElm) {
-            boundElm.removeAttribute('bindly')
-            boundElm.style.display = originalDisplay
-        }
-    }
-}
-
-// resetOriginals can be passed in the .destroy() callback to reset the original elements to their initial state. (only for display)
-function resetOriginals(e, originalDisplay = 'block') {
-    const targets = Object.values(e.originalElements)
-
-    for (var i=0; i < targets.length; i++) {
-        var target = targets[i]
-        target.style.display = originalDisplay
-    }
 }
