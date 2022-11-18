@@ -1,5 +1,5 @@
 /*
-Version: v1.2.3 ( updates @ github.com/jridyard/bindly )
+Version: v1.2.4 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
@@ -204,9 +204,9 @@ class ElmBind {
         const manipulationParams = this.params.originalElement // .adjustments?
         if (manipulationParams) this.manipulateElm(originalElm, manipulationParams)
 
-        if (this.params.onAttributeChange) {
+        if (this.params.onMutation) {
             this.bindlyStyleDetails['original'][bindly_id] = this.getCurrentStyles(originalElm)
-            this.onAttributeChange(originalElm, 'original', bindly_id)
+            this.onMutation(originalElm, 'original', bindly_id)
         }
 
         if (this.params.bindAll) this.waitForElm()
@@ -228,9 +228,9 @@ class ElmBind {
 
         this.trackElmDeletion(newElement)
 
-        if (this.params.onAttributeChange) {
+        if (this.params.onMutation) {
             this.bindlyStyleDetails['duplicate'][bindly_id] = this.getCurrentStyles(newElement)
-            this.onAttributeChange(newElement, 'duplicate', bindly_id)
+            this.onMutation(newElement, 'duplicate', bindly_id)
         }
     }
 
@@ -290,7 +290,7 @@ class ElmBind {
         })
     }
 
-    onAttributeChange(target_element, bindly_element_type, bindly_element_id) {
+    onMutation(target_element, bindly_element_type, bindly_element_id) {
 
         // collect information on attribute changes
         var changeInfo = {}
@@ -339,8 +339,8 @@ class ElmBind {
 
             // we use .then() to access our class information without being limited by the mutation observers class.
             // re-instantiate observer right away since we don't actually want it to be off
-            if (bindly_element_type == 'original') this.onAttributeChange(record.target, 'original', bindly_id)
-            if (bindly_element_type == 'duplicate') this.onAttributeChange(record.target, 'duplicate', bindly_id)
+            if (bindly_element_type == 'original') this.onMutation(record.target, 'original', bindly_id)
+            if (bindly_element_type == 'duplicate') this.onMutation(record.target, 'duplicate', bindly_id)
 
             // the below inline if statement is irrelevant with the current version of bindly. We will ALWAYS have it present. More so just a backup in the unlikely case something goes wrong.
             // TODO: Get the guts up to remove the crutch if statement below...
@@ -373,7 +373,7 @@ class ElmBind {
 
             changeInfo = {} // reset changeInfo
 
-            this.params.onAttributeChange(attribute_change_record)
+            this.params.onMutation(attribute_change_record)
     
         })
 
@@ -416,10 +416,10 @@ class ElmBind {
         targetToClone.setAttribute('bindly-pair-id', duplicateElmId)
         duplicateElm.setAttribute('bindly-pair-id', originalElmId)
         
-        // onAttributeChange =>
-        if (this.params.onAttributeChange) {
+        // onMutation =>
+        if (this.params.onMutation) {
             this.bindlyStyleDetails['duplicate'][bindly_id] = this.getCurrentStyles(duplicateElm)
-            this.onAttributeChange(duplicateElm, 'duplicate', bindly_id)
+            this.onMutation(duplicateElm, 'duplicate', bindly_id)
         }
 
         // onCreated =>
