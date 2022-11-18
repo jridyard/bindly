@@ -210,7 +210,6 @@ class ElmBind {
         }
 
         if (this.params.bindAll) this.waitForElm()
-<<<<<<< HEAD
     }
 
     pairElements(newElement, originalElement) {
@@ -258,55 +257,6 @@ class ElmBind {
         }
     }
 
-=======
-    }
-
-    pairElements(newElement, originalElement) {
-        const originalElm_id = originalElement.getAttribute('bindly-id')
-        if (!originalElm_id) {
-            return console.error("Bindly: Cannot pair to a non bindly element. The original element you passed has no bindly-id attribute.")
-        }
-
-        const bindly_id = this.guidGenerator()
-
-        newElement.setAttribute('bindly', 'bound')
-        newElement.setAttribute('bindly-type', 'duplicate')
-        newElement.setAttribute('bindly-group-id', this.params.groupId)
-        newElement.setAttribute('bindly-id', bindly_id)
-        newElement.setAttribute('bindly-pair-id', originalElm_id)
-
-        this.trackElmDeletion(newElement)
-
-        if (this.params.onAttributeChange) {
-            this.bindlyStyleDetails['duplicate'][bindly_id] = this.getCurrentStyles(newElement)
-            this.onAttributeChange(newElement, 'duplicate', bindly_id)
-        }
-    }
-
-    rebind(e) {
-        // rebind is useful when a duplicate element is removed DIRECTLY.
-        // Sometimes, certain sites will randomly jettison our duplicate element.
-        // this method allows us to rebind the original element and maintain a seamless look through the tumultous element rendering process.
-        const originalElement = document.querySelector(`[bindly-id="${e.target.getAttribute('bindly-pair-id')}"]`);
-        if (originalElement) {
-            if (this.params.logs) console.warn('Bindly: Duplicate element removed directly. The original element was still present. Bindly has re-injected the duplicate element. Turn this feature off by setting the paramater "rebind" to false.')
-            this.bindElement(originalElement)
-        }
-        else {
-            if (this.params.logs) console.warn('Bindly: Duplicate element removed directly. The original element was NOT still present. Bindly has run some fairly sketchy code to try to solve the problem. If you are having issues, turn this feature off by setting the paramater "hard-rebind" to false.')
-            if (this.params['hard-rebind']) {
-                // this is straight up sketchy code.
-                // there is an extremely rare issue when loading a single page app that causes a misfire and rebind fails, but the elements inexpciably retain bindly properties???
-                // the specific issue was found on zillow.com when loading in the home details modal for the home fact bullets. ( selector = ".ds-data-view-list .dpf__sc-2arhs5-0.ecJCxh" )
-                // the following solution fixed the problem, but I fear it could cause problems for otherwise functional bindly instances in the future.
-                document.querySelectorAll(`[bindly-group-id="${this.params.groupId}"]`).forEach(elm => {
-                    elm.removeAttribute('bindly')
-                });
-            }
-        }
-    }
-
->>>>>>> 64fafee2e87286de4cde08bf741dc7c947f8421c
     trackElmDeletion(target) {
         const element_type = target.getAttribute('bindly-type')
         const bindly_element_id = target.getAttribute('bindly-id')
@@ -774,8 +724,4 @@ async function waitForElm(selector, jquery = false) {
             subtree: true
         });
     });
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 64fafee2e87286de4cde08bf741dc7c947f8421c
