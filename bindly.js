@@ -1,11 +1,13 @@
 /*
-Version: v1.2.4 ( updates @ github.com/jridyard/bindly )
+Version: v1.2.5 ( updates @ github.com/jridyard/bindly )
 Creator: Joe Ridyard ( github.com/jridyard )
 */
 
-class ElmBind {
+class Bind {
 
     constructor(params) {
+
+        if (!params) return;
 
         function keyNotListed(key) { return !Object.keys(params).includes(key) }
 
@@ -14,13 +16,13 @@ class ElmBind {
             console.error('Bindly: You must pass a target element selector. Example: Bindly({target: ".my-element"})');
             this.dontInitialize = true;
         }
-        if (params['target'].length == 0) {
+        if (params.target?.length == 0) {
             console.error('Bindly: You must pass a target element selector. Example: Bindly({target: ".my-element"})');
             this.dontInitialize = true;
         }
 
         // Set defaults for params that may not be passed and need to be set to TRUE.
-        if (keyNotListed('duplicate')) params['duplicate'] = true
+        // // if (keyNotListed('duplicate')) params['duplicate'] = false
         if (keyNotListed('bindAll')) params['bindAll'] = true
         if (keyNotListed('rebind')) params['rebind'] = true
         if (keyNotListed('hard-rebind')) params['hard-rebind'] = true
@@ -194,7 +196,10 @@ class ElmBind {
             }
         }
 
-        this.trackElmDeletion(originalElement)
+        this.trackElmDeletion(originalElement, {
+            "bindly_element_id": bindly_id,
+            "bindly-type": 'original'
+        })
 
         if (this.params.duplicate) {
             const targetToClone = originalElement
@@ -257,9 +262,18 @@ class ElmBind {
         }
     }
 
-    trackElmDeletion(target) {
-        const element_type = target.getAttribute('bindly-type')
-        const bindly_element_id = target.getAttribute('bindly-id')
+    trackElmDeletion(target, attributes=null) {
+        var element_type;
+        var bindly_element_id;
+
+        if (attributes) {
+            element_type = attributes['bindly-type']
+            bindly_element_id = attributes['bindly_element_id']
+        } else {
+            element_type = target.getAttribute('bindly-type')
+            bindly_element_id = target.getAttribute('bindly-id')
+        }
+
 
         new Promise(resolve => {
             let observer = new MutationObserver(function(mutations) {
@@ -283,6 +297,7 @@ class ElmBind {
                 childList: true
             }
             observer.observe(document.body, config)
+            // if (this.removalObservers?.element_type?.bindly_element_id) this.removalObservers.element_type.bindly_element_id = observer
             this.removalObservers[element_type][bindly_element_id] = observer
         }).then((removalEventDetails) => {
             this.onDestroyed(removalEventDetails)
@@ -317,30 +332,31 @@ class ElmBind {
             let observer = new MutationObserver(function (records) {
                 records.forEach(function (record) {
                     try {
-                        if (record.target == target_element) {
-                            observer.disconnect()
-                            resolve(record)
-                        }
+                        observer.disconnect()
+                        resolve(record)
                     } catch (err) { /* supress err */ }
                 });
             });
         
-            observer.observe(document.body.parentElement, {
+            observer.observe(target_element, {
                 characterData: true,
-                childList: true, // not 100% sure we want to keep this turned on...
+                childList: true,
                 subtree: true,
-                attributes: true
+                attributes: true,
+                characterDataOldValue: true
             });
 
             this.attributeObservers[bindly_element_type][bindly_element_id] = observer
         }).then((record) => {
 
-            const bindly_id = record.target.getAttribute('bindly-id') ? record.target.getAttribute('bindly-id') : this.guidGenerator()
+            var TARGET = target_element
+
+            const bindly_id = TARGET.getAttribute('bindly-id') ? TARGET.getAttribute('bindly-id') : this.guidGenerator()
 
             // we use .then() to access our class information without being limited by the mutation observers class.
             // re-instantiate observer right away since we don't actually want it to be off
-            if (bindly_element_type == 'original') this.onMutation(record.target, 'original', bindly_id)
-            if (bindly_element_type == 'duplicate') this.onMutation(record.target, 'duplicate', bindly_id)
+            if (bindly_element_type == 'original') this.onMutation(TARGET, 'original', bindly_id)
+            if (bindly_element_type == 'duplicate') this.onMutation(TARGET, 'duplicate', bindly_id)
 
             // the below inline if statement is irrelevant with the current version of bindly. We will ALWAYS have it present. More so just a backup in the unlikely case something goes wrong.
             // TODO: Get the guts up to remove the crutch if statement below...
@@ -676,52 +692,47 @@ class ElmBind {
         }
     }
 
+    static async waitFor(selector, jquery = false) {
+        // DEFAULT
+        if (jquery == false) return new Promise(resolve => {
+            const target = document.querySelector(selector)
+            if (target) return resolve(target)
+    
+            let observer = new MutationObserver(mutations => {
+                const target = document.querySelector(selector)
+                if (target) {
+                    resolve(target);
+                    observer.disconnect();
+                }
+            });
+    
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            })
+        })
+    
+        // JQUERY MODE:
+        return new Promise(resolve => {
+            const target = $(selector)[0]
+            if (target) return resolve(target)
+
+            let observer = new MutationObserver(mutations => {
+                const target = $(selector)[0]
+                if (target) {
+                    resolve(target);
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    }
+
 }
 
 function Bindly(params) {
-    return new ElmBind(params)
-}
-
-
-/*
-    Below is an auxiliary function that technically does not have to do with Bindly directly, but can assist in certain cases for features that fall outside Bindly's default scope!
-*/
-
-// waitForElm offers a simple option to await the presence of an element.
-// An ideal use case would be for when you need to collect data from an element before proceeding with other functions.
-async function waitForElm(selector, jquery = false) {
-    if (jquery == false) return new Promise(resolve => {
-        if (document.querySelector(selector)) {
-            return resolve(document.querySelector(selector))
-        }
-
-        let observer = new MutationObserver(mutations => {
-            if (document.querySelector(selector)) {
-                resolve(document.querySelector(selector))
-                observer.disconnect();
-            }
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        })
-    })
-
-    // JQUERY MODE:
-    return new Promise(resolve => {
-        if ($(selector)[0]) {
-            return resolve($(selector)[0])
-        }
-        let observer = new MutationObserver(mutations => {
-            if ($(selector)[0]) {
-                resolve($(selector)[0])
-                observer.disconnect();
-            }
-        });
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    });
+    return new Bind(params)
 }
